@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Convertidor de imágenes gratis online</title>
+    <meta name="description" content="Convierte imágenes PNG, JPG, WEBP, JPEG rápidamente y gratis. Conversor rápido sin marcas de agua con drag & drop.">
+    <meta name="keywords" content="convertir imagen, convertidor png, convertidor jpg, gratis, online">
+    <meta name="author" content="Sthephano">
+    <meta charset="UTF-8">
+
+    <!-- Librería JSZip -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        *{
+            margin: 0;
+            padding: 0;
+        }
+        body{
+            background-color: rgb(141, 207, 255);
+            margin: 5%;
+        }
+
+        .contenedor{
+            background-color: white;
+            padding: 5%;
+            border-radius: 20px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        h1, h3{
+            text-align: center;
+        }
+
+        p{
+            text-align: center;
+        }
+
+        .caja{
+            margin: 3% 0;
+        }
+
+        #dropZone {
+            width: 100%;
+            height: 200px;
+            padding: 40px;
+            border: 2px dashed #000000;
+            cursor: pointer;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center; 
+        }
+
+        .preview-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+        
+        .preview-item img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        .remove-btn {
+            border: 1px solid #000000;
+            border-radius: 100%;
+            padding: 10px;
+            cursor: pointer;
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Convertidor de Imágenes gratis</h1>
+
+        <div class="caja">
+            <p><strong>Convierte una o más imagenes</strong></p>
+        </div>
+
+        <!-- ZONA DRAG & DROP -->
+        <div class="caja">
+            <div id="dropZone">Arrastra tus imágenes aquí o haz clic para seleccionarlas</div>
+        </div>
+
+        <input type="file" id="inputImgs" multiple accept="image/*" style="display:none">
+
+        <div class="caja">
+            <!-- Formato de salida -->
+            <label>Formato de salida:</label>
+            <select id="format">
+                <option value="png">PNG</option>
+                <option value="jpg">JPG</option>
+                <option value="webp">WEBP</option>
+                <option value="ico">ICO</option>
+            </select>
+
+            <button id="startBtn">Convertir</button>
+            <button id="resetBtn" style="display:none;">Convertir más</button>
+        </div>
+
+        <div class="caja"><h3>Previsualización:</h3></div>
+        <div class="caja">
+            <div id="preview"></div>
+        </div>
+        <button class="boton_sugerencias">
+            <a href="https://forms.gle/X1ZcgbiK6XH3j2zG6" target="_blank">Sugerencias</a>
+        </button>
+    </div>
+<script>
+const inputImgs = document.getElementById("inputImgs");
+const dropZone = document.getElementById("dropZone");
+const preview = document.getElementById("preview");
+const startBtn = document.getElementById("startBtn");
+const resetBtn = document.getElementById("resetBtn");
+
+let fileQueue = [];
+
+/* =======================
+   DRAG & DROP
+======================= */
+
+// Click en el área → abrir selector
+dropZone.addEventListener("click", () => inputImgs.click());
+
+// Arrastrar encima
+dropZone.addEventListener("dragover", e => {
+    e.preventDefault();
+    dropZone.style.background = "#e6e6e6";
+});
+
+// Salir del área
+dropZone.addEventListener("dragleave", e => {
+    dropZone.style.background = "";
+});
+
+// Soltar archivos
+dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.style.background = "";
+
+    let files = [...e.dataTransfer.files].filter(f => f.type.startsWith("image/"));
+    addFiles(files);
+});
+
+// Subida normal
+inputImgs.addEventListener("change", () => {
+    let files = [...inputImgs.files];
+    addFiles(files);
+});
+
+/* ==========================
+   AGREGAR + PREVISUALIZAR
+========================== */
+function addFiles(files) {
+    for (let file of files) {
+        fileQueue.push(file);
+        addPreviewItem(file);
+    }
+}
+
+function addPreviewItem(file) {
+    let container = document.createElement("div");
+    container.classList.add("preview-item");
+
+    let img = document.createElement("img");
+    img.src = URL.createObjectURL(file);
+
+    let name = document.createElement("span");
+    name.textContent = file.name;
+
+    let remove = document.createElement("span");
+    remove.classList.add("remove-btn");
+    remove.textContent = "✖";
+    remove.onclick = () => removeFile(file, container);
+
+    container.appendChild(img);
+    container.appendChild(name);
+    container.appendChild(remove);
+
+    preview.appendChild(container);
+}
+
+function removeFile(file, element) {
+    fileQueue = fileQueue.filter(f => f !== file);
+    element.remove();
+}
+
+/* ==========================
+   CONVERSIÓN
+========================== */
+
+function convertImage(file, format) {
+    return new Promise((resolve, reject) => {
+        let img = new Image();
+        img.onload = () => {
+            let canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            let ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+
+            if (format !== "ico") {
+                canvas.toBlob(
+                    blob => resolve({ blob, name: file.name }),
+                    "image/" + (format === "jpg" ? "jpeg" : format),
+                    0.95
+                );
+            } else {
+                canvas.width = 256;
+                canvas.height = 256;
+                ctx.drawImage(img, 0, 0, 256, 256);
+
+                canvas.toBlob(
+                    blob => resolve({ blob, name: file.name }),
+                    "image/png"
+                );
+            }
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+function downloadFile(blob, filename) {
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
+
+function downloadZip(files) {
+    const zip = new JSZip();
+    files.forEach(f => zip.file(f.filename, f.blob));
+    zip.generateAsync({ type: "blob" }).then(content => {
+        downloadFile(content, "imagenes_convertidas.zip");
+    });
+}
+
+/* ========================
+   PROCESAR COLA
+======================= */
+
+startBtn.addEventListener("click", async () => {
+    const format = document.getElementById("format").value;
+
+    let zipFiles = [];
+
+    for (let file of fileQueue) {
+        const result = await convertImage(file, format);
+        let filename = file.name.split(".")[0] + "." + format;
+
+        if (fileQueue.length === 1) {
+            downloadFile(result.blob, filename);
+        } else {
+            zipFiles.push({ filename, blob: result.blob });
+        }
+    }
+
+    if (zipFiles.length > 1) {
+        downloadZip(zipFiles);
+    }
+
+    startBtn.style.display = "none";
+    resetBtn.style.display = "inline-block";
+});
+
+/* ========================
+   RESET (Convertir más)
+======================= */
+
+resetBtn.addEventListener("click", () => {
+    fileQueue = [];
+    preview.innerHTML = "";
+    inputImgs.value = "";
+    resetBtn.style.display = "none";
+    startBtn.style.display = "inline-block";
+});
+
+// ❌ Desactivar clic derecho
+document.addEventListener("contextmenu", function(e){
+    e.preventDefault();
+});
+
+// ❌ Bloquear teclas de desarrollador
+document.addEventListener("keydown", function(e) {
+    // F12
+    if (e.key === "F12") {
+        e.preventDefault();
+    }
+    // Ctrl+Shift+I (Inspeccionar)
+    if (e.ctrlKey && e.shiftKey && e.key === "I") {
+        e.preventDefault();
+    }
+    // Ctrl+Shift+J (Consola)
+    if (e.ctrlKey && e.shiftKey && e.key === "J") {
+        e.preventDefault();
+    }
+    // Ctrl+U (Ver código fuente)
+    if (e.ctrlKey && e.key === "U") {
+        e.preventDefault();
+    }
+});
+
+// ❌ Evitar abrir herramientas con el mouse (usar devtools detector)
+setInterval(function () {
+    const threshold = 160;
+    if (window.outerWidth - window.innerWidth > threshold || 
+        window.outerHeight - window.innerHeight > threshold) {
+        document.body.innerHTML = "<h2 style='text-align:center;margin-top:50px;'>⚠ Inspeccionar código no permitido</h2>";
+    }
+}, 1000);
+</script>
+</body>
+</html>
