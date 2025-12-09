@@ -1,1 +1,1 @@
-# Convertidor-de-im-genes
+# Convertidor-de-imagenes
